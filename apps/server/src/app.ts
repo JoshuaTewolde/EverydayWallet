@@ -3,10 +3,15 @@ import express, { type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { ServerConfig } from './config.js';
 
+export interface Prices {
+  usdPerSol: number;
+  usdPerBtc: number;
+}
+
 export interface Deps {
   config: ServerConfig;
-  /** USD per SOL (uncached source). */
-  fetchSolUsd: () => Promise<number>;
+  /** USD per SOL and per BTC (uncached source). */
+  fetchPrices: () => Promise<Prices>;
   /** Read a receipt image; null if no Gemini key configured. */
   readReceipt: ((image: string, mimeType: string) => Promise<Receipt>) | null;
   now?: () => number;
@@ -45,20 +50,20 @@ export function createApp(deps: Deps) {
   app.get('/health', (_req, res) => void res.json({ ok: true }));
 
   // ---- price (cached) ----
-  let cache: { usdPerSol: number; at: number } | null = null;
-  let inflight: Promise<number> | null = null;
+  let cache: (Prices & { at: number }) | null = null;
+  let inflight: Promise<Prices> | null = null;
   app.get('/api/price', async (_req, res) => {
     const fresh = cache && now() - cache.at < config.PRICE_CACHE_SECONDS * 1000;
     if (!fresh) {
       try {
-        inflight ??= deps.fetchSolUsd().finally(() => (inflight = null));
-        cache = { usdPerSol: await inflight, at: now() };
+        inflight ??= deps.fetchPrices().finally(() => (inflight = null));
+        cache = { ...(await inflight), at: now() };
       } catch (e) {
         console.warn('price fetch failed', e);
         if (!cache) return void res.status(503).json({ error: 'price unavailable' });
       }
     }
-    res.json({ usdPerSol: cache!.usdPerSol, at: cache!.at, source: 'coingecko' });
+    res.json({ ...cache!, source: 'coingecko' });
   });
 
   // ---- receipt (Gemini), rate-limited per IP; photos are never stored ----

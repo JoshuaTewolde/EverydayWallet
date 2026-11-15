@@ -5,8 +5,8 @@ const ConfigSchema = z.object({
   /** Server-only. Without it, /api/receipt returns 503 and the app asks users to type amounts. */
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().min(1).default('gemini-3.8-flash'),
-  /** Comma-separated CORS origins. The Capacitor WebView origin is https://localhost. */
-  CORS_ORIGINS: z.string().default('https://localhost,http://localhost,http://localhost:5174'),
+  /** Comma-separated CORS origins. The Capacitor WebView origin is https://tap.local. */
+  CORS_ORIGINS: z.string().default('https://tap.local,http://localhost:5174'),
   RECEIPTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
   PRICE_CACHE_SECONDS: z.coerce.number().int().positive().default(60),
 });

@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Button, ButtonLink, Card, ErrorText, Loading, SolAmount } from '../design/components';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  ErrorText,
+  Loading,
+  SatsAmount,
+  SolAmount,
+} from '../design/components';
+import { BREEZ_ENABLED } from '../lib/breez';
 import { explorerTx, shortAddr } from '../lib/config';
 import { nameFor } from '../lib/contacts';
 import { airdrop, friendlyError } from '../lib/solana';
@@ -7,9 +16,30 @@ import { useStore, useWallet } from '../lib/store';
 
 export function Home() {
   const wallet = useWallet();
-  const { balance, price, activity, contacts, refresh, refreshError } = useStore();
+  const {
+    balance,
+    price,
+    activity,
+    contacts,
+    refresh,
+    refreshError,
+    btcBalance,
+    btcPrice,
+    btcError,
+  } = useStore();
   const [dropping, setDropping] = useState(false);
   const [dropMsg, setDropMsg] = useState<string | null>(null);
+
+  async function openFaucet() {
+    const addr = wallet.keypair.publicKey.toBase58();
+    try {
+      await navigator.clipboard.writeText(addr);
+      setDropMsg('Address copied. Paste it on the faucet page, pick devnet, then come back.');
+    } catch {
+      setDropMsg(`Your address: ${addr}`);
+    }
+    window.open('https://faucet.solana.com', '_blank');
+  }
 
   async function getTestSol() {
     setDropping(true);
@@ -19,7 +49,8 @@ export function Home() {
       setDropMsg('+1 test SOL arrived.');
       await refresh();
     } catch (e) {
-      setDropMsg(`${friendlyError(e)} You can also use faucet.solana.com with your address.`);
+      // Public devnet RPC no longer airdrops (HTTP 410), so fall back to the web faucet.
+      setDropMsg(`${friendlyError(e)} Use the web faucet below.`);
     } finally {
       setDropping(false);
     }
@@ -38,6 +69,20 @@ export function Home() {
         </div>
       </Card>
       <ErrorText>{refreshError}</ErrorText>
+      {BREEZ_ENABLED && (
+        <Card raised>
+          <div className="balance">
+            <span className="eyebrow">Bitcoin · regtest (Breez)</span>
+            {btcBalance !== null ? (
+              <SatsAmount sats={btcBalance} price={btcPrice} size="lg" />
+            ) : btcError ? (
+              <span className="muted">Bitcoin unavailable: {btcError}</span>
+            ) : (
+              <Loading label="Starting bitcoin wallet" />
+            )}
+          </div>
+        </Card>
+      )}
 
       <div className="actions">
         <ButtonLink to="/send" variant="primary" size="lg" block>
@@ -54,9 +99,9 @@ export function Home() {
             Get 1 test SOL
           </Button>
           {dropMsg && <p className="muted">{dropMsg}</p>}
-          <a href="https://faucet.solana.com" target="_blank" rel="noreferrer" className="muted">
-            Airdrop limited? Use faucet.solana.com
-          </a>
+          <Button block onClick={() => void openFaucet()}>
+            Copy my address &amp; open faucet.solana.com
+          </Button>
         </div>
       </Card>
 

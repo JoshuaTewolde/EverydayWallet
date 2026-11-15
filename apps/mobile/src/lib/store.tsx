@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { fetchPrice } from './api';
+import { fetchPrices } from './api';
+import { BREEZ_ENABLED, btcBalance as readBtcBalance, onBtcEvent } from './breez';
 import { loadContacts, type Contact } from './contacts';
 import { getActivity, getBalance, type Activity } from './solana';
 import { loadWallet, type StoredWallet } from './vault';
@@ -19,6 +20,12 @@ interface Store {
   balance: bigint | null;
   activity: Activity[];
   price: number | null;
+  /** USD per BTC (display only). */
+  btcPrice: number | null;
+  /** Sats; null = loading/unavailable. */
+  btcBalance: number | null;
+  btcError: string | null;
+  refreshBtc: () => Promise<void>;
   contacts: Contact[];
   setContacts: (c: Contact[]) => void;
   refresh: () => Promise<void>;
@@ -33,6 +40,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<bigint | null>(null);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [price, setPrice] = useState<number | null>(null);
+  const [btcPrice, setBtcPrice] = useState<number | null>(null);
+  const [btcBalance, setBtcBalance] = useState<number | null>(null);
+  const [btcError, setBtcError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
@@ -46,8 +56,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setContacts(await loadContacts());
       setReady(true);
     })();
-    void fetchPrice().then(setPrice);
-    const t = setInterval(() => void fetchPrice().then((p) => p && setPrice(p)), 60_000);
+    const loadPrices = () =>
+      void fetchPrices().then((p) => {
+        if (p.usdPerSol) setPrice(p.usdPerSol);
+        if (p.usdPerBtc) setBtcPrice(p.usdPerBtc);
+      });
+    loadPrices();
+    const t = setInterval(loadPrices, 60_000);
     return () => clearInterval(t);
   }, []);
 
@@ -64,6 +79,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [wallet]);
 
+  const refreshBtc = useCallback(async () => {
+    if (!wallet || !BREEZ_ENABLED) return;
+    try {
+      setBtcBalance(await readBtcBalance());
+      setBtcError(null);
+    } catch (e) {
+      console.warn('breez failed', e);
+      setBtcError(e instanceof Error ? e.message : 'Bitcoin wallet unavailable');
+    }
+  }, [wallet]);
+
+  // Breez runs as WASM; start it in the background so SOL never waits on it.
+  useEffect(() => {
+    if (!wallet || !BREEZ_ENABLED) return;
+    void refreshBtc();
+    const off = onBtcEvent(() => void refreshBtc());
+    const t = setInterval(() => void refreshBtc(), 30_000);
+    return () => {
+      off();
+      clearInterval(t);
+    };
+  }, [wallet, refreshBtc]);
+
   useEffect(() => {
     if (!wallet) return;
     void refresh();
@@ -79,12 +117,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       balance,
       activity,
       price,
+      btcPrice,
+      btcBalance,
+      btcError,
+      refreshBtc,
       contacts,
       setContacts,
       refresh,
       refreshError,
     }),
-    [ready, wallet, balance, activity, price, contacts, refresh, refreshError],
+    [
+      ready,
+      wallet,
+      balance,
+      activity,
+      price,
+      btcPrice,
+      btcBalance,
+      btcError,
+      refreshBtc,
+      contacts,
+      refresh,
+      refreshError,
+    ],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

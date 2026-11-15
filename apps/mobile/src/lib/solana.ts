@@ -82,6 +82,7 @@ export function friendlyError(e: unknown): string {
     return 'The network took too long. Nothing was sent; try again.';
   if (/failed to fetch|network|ECONN|timeout/i.test(msg))
     return "Can't reach Solana devnet. Check your connection and try again.";
+  if (/\b410\b|faucet is closed/i.test(msg)) return 'The devnet RPC faucet is closed.';
   if (/429|too many requests|rate/i.test(msg))
     return 'Devnet is rate-limiting us. Wait a moment, or use faucet.solana.com.';
   return msg.length > 160 ? `${msg.slice(0, 160)}…` : msg;

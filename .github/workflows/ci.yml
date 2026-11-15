@@ -47,6 +47,7 @@ jobs:
       - name: Build web + sync Capacitor
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_BREEZ_API_KEY: ${{ secrets.VITE_BREEZ_API_KEY }}
         run: pnpm android:sync
       - name: Debug APK + Kotlin APDU unit tests
         working-directory: apps/mobile/android

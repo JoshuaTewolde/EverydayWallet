@@ -16,21 +16,29 @@ const image = 'A'.repeat(200);
 
 describe('server', () => {
   it('caches the price', async () => {
-    const fetchSolUsd = vi.fn().mockResolvedValue(150);
-    const app = createApp({ config, fetchSolUsd, readReceipt: null });
+    const fetchPrices = vi.fn().mockResolvedValue({ usdPerSol: 150, usdPerBtc: 90000 });
+    const app = createApp({ config, fetchPrices, readReceipt: null });
     await request(app).get('/api/price').expect(200, /150/);
     await request(app).get('/api/price').expect(200);
-    expect(fetchSolUsd).toHaveBeenCalledTimes(1);
+    expect(fetchPrices).toHaveBeenCalledTimes(1);
   });
 
   it('503s on receipt without a Gemini key', async () => {
-    const app = createApp({ config, fetchSolUsd: async () => 1, readReceipt: null });
+    const app = createApp({
+      config,
+      fetchPrices: async () => ({ usdPerSol: 1, usdPerBtc: 1 }),
+      readReceipt: null,
+    });
     await request(app).post('/api/receipt').send({ image, mimeType: 'image/jpeg' }).expect(503);
   });
 
   it('validates input, validates model output, and rate-limits', async () => {
     const readReceipt = vi.fn().mockResolvedValue(receipt);
-    const app = createApp({ config, fetchSolUsd: async () => 1, readReceipt });
+    const app = createApp({
+      config,
+      fetchPrices: async () => ({ usdPerSol: 1, usdPerBtc: 1 }),
+      readReceipt,
+    });
     await request(app)
       .post('/api/receipt')
       .send({ image: 'x', mimeType: 'image/jpeg' })
@@ -43,7 +51,11 @@ describe('server', () => {
 
   it('rejects malformed model output', async () => {
     const readReceipt = vi.fn().mockResolvedValue({ ...receipt, confidence: 7 });
-    const app = createApp({ config, fetchSolUsd: async () => 1, readReceipt });
+    const app = createApp({
+      config,
+      fetchPrices: async () => ({ usdPerSol: 1, usdPerBtc: 1 }),
+      readReceipt,
+    });
     await request(app).post('/api/receipt').send({ image, mimeType: 'image/png' }).expect(502);
   });
 });

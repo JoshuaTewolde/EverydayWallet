@@ -21,3 +21,7 @@ Android-only Solana **devnet** wallet with phone-to-phone NFC tap. Full spec: `d
 - Keys: `@aparajita/capacitor-secure-storage` (Android Keystore). Devnet only.
 - Sender adds memo `tap:from:<nickname>` so the receiver can show "Paid by <name>".
 - Never auto-send: every transfer goes through the Confirm screen.
+- WebView origin is `https://tap.local` (capacitor.config `server.hostname`): public devnet RPC 403s `Origin: https://localhost`.
+- Public devnet RPC airdrop is closed (HTTP 410): the app links to faucet.solana.com instead.
+- Bitcoin: Breez SDK Spark 0.28.4 **web/WASM build in the WebView** (spike passed on emulator), regtest.
+  Mnemonic in secure storage (`tap.breez.mnemonic`). Tap payload `rail: "bitcoin"`, `url` = Spark invoice/address.

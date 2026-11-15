@@ -11,15 +11,20 @@ async function timed(url: string, init: RequestInit = {}, ms = 8000): Promise<Re
   }
 }
 
-/** USD per SOL, or null if the server is unreachable (UI just hides USD). */
-export async function fetchPrice(): Promise<number | null> {
+const pos = (v: unknown) => (typeof v === 'number' && v > 0 ? v : null);
+
+/** USD rates, or nulls if the server is unreachable (UI just hides USD). */
+export async function fetchPrices(): Promise<{
+  usdPerSol: number | null;
+  usdPerBtc: number | null;
+}> {
   try {
     const r = await timed(`${API_URL}/api/price`);
-    if (!r.ok) return null;
-    const j = (await r.json()) as { usdPerSol?: unknown };
-    return typeof j.usdPerSol === 'number' && j.usdPerSol > 0 ? j.usdPerSol : null;
+    if (!r.ok) return { usdPerSol: null, usdPerBtc: null };
+    const j = (await r.json()) as { usdPerSol?: unknown; usdPerBtc?: unknown };
+    return { usdPerSol: pos(j.usdPerSol), usdPerBtc: pos(j.usdPerBtc) };
   } catch {
-    return null;
+    return { usdPerSol: null, usdPerBtc: null };
   }
 }
 

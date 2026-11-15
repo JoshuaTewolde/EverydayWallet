@@ -95,8 +95,8 @@ describe('tap payload', () => {
   it('round-trips', () => {
     const raw = encodeTapPayload({ v: 1, rail: 'solana', label: 'Al', url });
     const p = parseTapPayload(raw);
-    expect(p.ok && p.request.recipient).toBe(A);
-    expect(p.ok && p.request.amount).toBe(1n);
+    expect(p.ok && p.rail === 'solana' && p.request.recipient).toBe(A);
+    expect(p.ok && p.rail === 'solana' && p.request.amount).toBe(1n);
   });
   it('accepts a bare solana url (QR from other wallets)', () => {
     expect(parseTapPayload(url).ok).toBe(true);

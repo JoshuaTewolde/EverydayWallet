@@ -4,29 +4,58 @@ import { NfcTap } from '@tap/capacitor-nfc-tap';
 import {
   formatUsd,
   isPublicKey,
+  parseSats,
   parseSol,
   parseTapPayload,
+  satsToUsd,
   solToUsd,
+  type ParsedTap,
   type TransferRequest,
 } from '@tap/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Button, Card, ErrorText, ScreenHead, SolAmount, TapPulse } from '../design/components';
+import {
+  Button,
+  Card,
+  ErrorText,
+  SatsAmount,
+  ScreenHead,
+  SolAmount,
+  TapPulse,
+} from '../design/components';
+import {
+  BREEZ_ENABLED,
+  friendlyBtcError,
+  quoteBtc,
+  requestAmount,
+  sendBtc,
+  type BtcQuote,
+} from '../lib/breez';
 import { IS_NATIVE, explorerTx, shortAddr } from '../lib/config';
 import { nameFor, saveContact } from '../lib/contacts';
 import { FEE_LAMPORTS, friendlyError, sendSol } from '../lib/solana';
 import { useStore, useWallet } from '../lib/store';
 
-interface Target {
+type Target =
+  | { rail: 'solana'; label: string; request: TransferRequest }
+  | { rail: 'bitcoin'; label: string; url: string };
+
+interface Sent {
+  title: string;
+  amount: ReactNode;
+  link?: string;
+  /** Solana recipient, offered as a contact. */
+  saveAddress?: string;
   label: string;
-  request: TransferRequest;
 }
 
-type Phase =
-  | { kind: 'pick' }
-  | { kind: 'confirm'; target: Target }
-  | { kind: 'sending'; target: Target; lamports: bigint }
-  | { kind: 'done'; target: Target; lamports: bigint; sig: string };
+type Phase = { kind: 'pick' } | { kind: 'confirm'; target: Target } | { kind: 'done'; sent: Sent };
+
+function toTarget(p: Extract<ParsedTap, { ok: true }>): Target {
+  return p.rail === 'solana'
+    ? { rail: 'solana', label: p.label, request: p.request }
+    : { rail: 'bitcoin', label: p.label, url: p.url };
+}
 
 export function Send() {
   const location = useLocation();
@@ -35,10 +64,16 @@ export function Send() {
     prefill?.address && isPublicKey(prefill.address)
       ? {
           kind: 'confirm',
-          target: { label: prefill.name ?? '', request: { recipient: prefill.address } },
+          target: {
+            rail: 'solana',
+            label: prefill.name ?? '',
+            request: { recipient: prefill.address },
+          },
         }
       : { kind: 'pick' },
   );
+  const back = () => setPhase({ kind: 'pick' });
+  const done = (sent: Sent) => setPhase({ kind: 'done', sent });
 
   return (
     <main className="screen">
@@ -46,19 +81,13 @@ export function Send() {
       {phase.kind === 'pick' && (
         <Pick onTarget={(target) => setPhase({ kind: 'confirm', target })} />
       )}
-      {(phase.kind === 'confirm' || phase.kind === 'sending') && (
-        <Confirm
-          target={phase.target}
-          sending={phase.kind === 'sending'}
-          onCancel={() => setPhase({ kind: 'pick' })}
-          onSending={(lamports) => setPhase({ kind: 'sending', target: phase.target, lamports })}
-          onDone={(lamports, sig) =>
-            setPhase({ kind: 'done', target: phase.target, lamports, sig })
-          }
-          onFailed={() => setPhase({ kind: 'confirm', target: phase.target })}
-        />
+      {phase.kind === 'confirm' && phase.target.rail === 'solana' && (
+        <ConfirmSol target={phase.target} onCancel={back} onDone={done} />
       )}
-      {phase.kind === 'done' && <Done {...phase} />}
+      {phase.kind === 'confirm' && phase.target.rail === 'bitcoin' && (
+        <ConfirmBtc target={phase.target} onCancel={back} onDone={done} />
+      )}
+      {phase.kind === 'done' && <Done sent={phase.sent} />}
     </main>
   );
 }
@@ -77,7 +106,11 @@ function Pick({ onTarget }: { onTarget: (t: Target) => void }) {
       setHint(p.error);
       return false;
     }
-    onTarget({ label: p.label, request: p.request });
+    if (p.rail === 'bitcoin' && !BREEZ_ENABLED) {
+      setHint('This build has no bitcoin wallet.');
+      return false;
+    }
+    onTarget(toTarget(p));
     return true;
   };
 
@@ -140,10 +173,14 @@ function Pick({ onTarget }: { onTarget: (t: Target) => void }) {
   function submitManual() {
     setManualError(null);
     const v = manual.trim();
-    if (isPublicKey(v)) return onTarget({ label: '', request: { recipient: v } });
+    if (isPublicKey(v)) return onTarget({ rail: 'solana', label: '', request: { recipient: v } });
     const p = parseTapPayload(v);
-    if (p.ok) return onTarget({ label: p.label, request: p.request });
-    setManualError('Paste a Solana address or a solana: payment link.');
+    if (p.ok && (p.rail === 'solana' || BREEZ_ENABLED)) return onTarget(toTarget(p));
+    setManualError(
+      BREEZ_ENABLED
+        ? 'Paste a Solana address, a solana: link, or a Spark address/invoice.'
+        : 'Paste a Solana address or a solana: payment link.',
+    );
   }
 
   const recheck = async () => {
@@ -192,7 +229,9 @@ function Pick({ onTarget }: { onTarget: (t: Target) => void }) {
           }}
         >
           <label className="field">
-            Or paste an address / payment link
+            {BREEZ_ENABLED
+              ? 'Or paste a Solana address / Spark address or invoice'
+              : 'Or paste an address / payment link'}
             <input
               className="input mono"
               value={manual}
@@ -214,25 +253,20 @@ function Pick({ onTarget }: { onTarget: (t: Target) => void }) {
 
 // ---------------------------------------------------------------------------
 
-function Confirm({
+function ConfirmSol({
   target,
-  sending,
   onCancel,
-  onSending,
   onDone,
-  onFailed,
 }: {
-  target: Target;
-  sending: boolean;
+  target: Extract<Target, { rail: 'solana' }>;
   onCancel: () => void;
-  onSending: (lamports: bigint) => void;
-  onDone: (lamports: bigint, sig: string) => void;
-  onFailed: () => void;
+  onDone: (s: Sent) => void;
 }) {
   const wallet = useWallet();
   const { balance, price, contacts, refresh } = useStore();
   const fixed = target.request.amount;
   const [amountText, setAmountText] = useState('');
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lamports = fixed ?? (amountText.trim() ? parseSol(amountText) : null);
   const recipient = target.request.recipient;
@@ -240,13 +274,14 @@ function Confirm({
   const self = recipient === wallet.keypair.publicKey.toBase58();
 
   async function pay() {
+    if (sending) return;
     if (!lamports || lamports <= 0n) return setError('Enter an amount.');
     if (self) return setError("That's your own address.");
     if (balance !== null && balance < lamports + FEE_LAMPORTS) {
       return setError('Not enough SOL for this payment plus the network fee. Get test SOL first.');
     }
     setError(null);
-    onSending(lamports);
+    setSending(true);
     try {
       const sig = await sendSol({
         from: wallet.keypair,
@@ -258,18 +293,24 @@ function Confirm({
       });
       void Haptics.notification({ type: NotificationType.Success }).catch(() => {});
       void refresh();
-      onDone(lamports, sig);
+      onDone({
+        title: `Sent to ${nameFor(contacts, recipient) ?? name}`,
+        amount: <SolAmount lamports={lamports} price={price} size="lg" />,
+        link: explorerTx(sig),
+        saveAddress: nameFor(contacts, recipient) ? undefined : recipient,
+        label: target.label,
+      });
     } catch (e) {
       void Haptics.notification({ type: NotificationType.Error }).catch(() => {});
       setError(friendlyError(e));
-      onFailed();
+      setSending(false);
     }
   }
 
   return (
     <Card raised>
       <div className="stack">
-        <span className="eyebrow">Pay</span>
+        <span className="eyebrow">Pay with SOL · devnet</span>
         <h2>{name}</h2>
         <span className="mono">{recipient}</span>
         {target.request.message && <span>“{target.request.message}”</span>}
@@ -317,28 +358,156 @@ function Confirm({
 
 // ---------------------------------------------------------------------------
 
-function Done({ target, lamports, sig }: { target: Target; lamports: bigint; sig: string }) {
+function ConfirmBtc({
+  target,
+  onCancel,
+  onDone,
+}: {
+  target: Extract<Target, { rail: 'bitcoin' }>;
+  onCancel: () => void;
+  onDone: (s: Sent) => void;
+}) {
+  const { btcBalance, btcPrice, refreshBtc } = useStore();
+  /** undefined = still checking; null = payer chooses. */
+  const [fixed, setFixed] = useState<number | null | undefined>(undefined);
+  const [amountText, setAmountText] = useState('');
+  const [quote, setQuote] = useState<BtcQuote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const sats = fixed ?? (amountText.trim() ? parseSats(amountText) : null);
+  const name = target.label || shortAddr(target.url);
+
+  useEffect(() => {
+    requestAmount(target.url).then(
+      (a) => setFixed(a),
+      (e) => {
+        setFixed(null);
+        setError(friendlyBtcError(e));
+      },
+    );
+  }, [target.url]);
+
+  // Re-quote (fee + validation) whenever the amount settles.
+  useEffect(() => {
+    setQuote(null);
+    if (fixed === undefined || !sats) return;
+    let live = true;
+    const t = setTimeout(() => {
+      setQuoting(true);
+      quoteBtc(target.url, fixed ? undefined : sats)
+        .then((q) => live && (setQuote(q), setError(null)))
+        .catch((e) => live && setError(friendlyBtcError(e)))
+        .finally(() => live && setQuoting(false));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [target.url, fixed, sats]);
+
+  async function pay() {
+    if (sending || !quote) return;
+    if (btcBalance !== null && btcBalance < quote.amountSats + quote.feeSats) {
+      return setError('Not enough sats for this payment plus fees.');
+    }
+    setError(null);
+    setSending(true);
+    try {
+      await sendBtc(quote, crypto.randomUUID());
+      void Haptics.notification({ type: NotificationType.Success }).catch(() => {});
+      void refreshBtc();
+      onDone({
+        title: `Sent to ${name}`,
+        amount: <SatsAmount sats={quote.amountSats} price={btcPrice} size="lg" />,
+        label: target.label,
+      });
+    } catch (e) {
+      void Haptics.notification({ type: NotificationType.Error }).catch(() => {});
+      setError(friendlyBtcError(e));
+      setSending(false);
+    }
+  }
+
+  return (
+    <Card raised>
+      <div className="stack">
+        <span className="eyebrow">Pay with bitcoin · regtest</span>
+        <h2>{name}</h2>
+        <span className="mono">{shortAddr(target.url)}</span>
+        {fixed === undefined ? (
+          <span className="muted">Checking request…</span>
+        ) : fixed ? (
+          <SatsAmount sats={fixed} price={btcPrice} size="lg" />
+        ) : (
+          <label className="field">
+            Amount in sats
+            <input
+              className="input"
+              inputMode="numeric"
+              autoFocus
+              value={amountText}
+              disabled={sending}
+              onChange={(e) => setAmountText(e.target.value)}
+            />
+            {sats && btcPrice ? (
+              <span className="muted">≈ {formatUsd(satsToUsd(sats, btcPrice))}</span>
+            ) : null}
+          </label>
+        )}
+        {quote && <span className="muted">Network fee: {quote.feeSats} sats</span>}
+        {btcBalance !== null && (
+          <span className="muted">
+            Your balance: <SatsAmount sats={btcBalance} size="sm" />
+          </span>
+        )}
+        <ErrorText>{error}</ErrorText>
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          busy={sending || quoting}
+          disabled={!quote}
+          onClick={() => void pay()}
+        >
+          {sending ? 'Sending…' : error && quote ? 'Retry' : 'Confirm & pay'}
+        </Button>
+        <Button block disabled={sending} onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function Done({ sent }: { sent: Sent }) {
   const navigate = useNavigate();
-  const { price, contacts, setContacts } = useStore();
-  const recipient = target.request.recipient;
-  const known = nameFor(contacts, recipient);
-  const [name, setName] = useState(target.label);
+  const { setContacts } = useStore();
+  const [name, setName] = useState(sent.label);
+  const [saved, setSaved] = useState(false);
   return (
     <Card raised tone="teal">
       <div className="stack center">
         <div className="big-check">✓</div>
-        <h2>Sent to {known ?? (target.label || shortAddr(recipient))}</h2>
-        <SolAmount lamports={lamports} price={price} size="lg" />
-        <a href={explorerTx(sig)} target="_blank" rel="noreferrer">
-          View on explorer
-        </a>
-        {!known && (
+        <h2>{sent.title}</h2>
+        {sent.amount}
+        {sent.link && (
+          <a href={sent.link} target="_blank" rel="noreferrer">
+            View on explorer
+          </a>
+        )}
+        {sent.saveAddress && !saved && (
           <form
             className="stack"
             onSubmit={(e) => {
               e.preventDefault();
-              if (name.trim())
-                void saveContact({ name: name.trim(), address: recipient }).then(setContacts);
+              if (name.trim() && sent.saveAddress)
+                void saveContact({ name: name.trim(), address: sent.saveAddress }).then((c) => {
+                  setContacts(c);
+                  setSaved(true);
+                });
             }}
           >
             <input

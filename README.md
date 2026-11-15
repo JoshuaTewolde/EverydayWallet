@@ -6,7 +6,10 @@ An Android Solana wallet (devnet, test money) where paying someone is a phone-to
 2. The payer taps **Tap to pay** and holds the phones back to back.
 3. The payer sees _"Pay Sam 0.25 SOL?"_ and confirms. Both phones show **Paid ✓**.
 
-Built for Hack The Nest 2026 (MLH **Best Use of Solana**, **Best Use of Gemini API**).
+Built for Hack The Nest 2026 (MLH **Best Use of Solana**, **Best Use of Gemini API**, Breez **Everyday Wallet**).
+
+The app holds two balances: **SOL on Solana devnet** and **bitcoin (sats) on Breez Spark regtest**.
+The tap works for both currencies.
 
 ## How it works
 
@@ -44,10 +47,38 @@ Server (receipt scan + USD price): copy `.env.example` to `.env`, set `GEMINI_AP
 `pnpm --filter @tap/server dev`. Set `VITE_API_URL` before building the APK so the app can reach it.
 The app still works for tap-to-pay without the server. Only receipt scan and USD display stop working.
 
+## Test it
+
+**In the browser (fastest, no phone):** `pnpm --filter @tap/mobile dev`, then open
+http://localhost:5174 in **two tabs**. Tab A: Receive → Ready to be tapped. Tab B: Tap to pay. The fake
+NFC plugin passes the tap between tabs. Each tab is its own wallet only if you use a separate browser
+profile (they share localStorage otherwise).
+
+**Emulator (no NFC, but real WebView + Breez WASM):** Android Studio → Device Manager → start a
+device, then the `adb install -r …` command above. The receiver falls back to the QR code.
+
+**Two real phones (the actual tap):**
+
+1. On each phone: Settings → About phone → tap _Build number_ 7 times → Developer options → **USB debugging** on.
+   Turn **NFC on**. (Settings → Connected devices → NFC.)
+2. Plug in phone 1, accept the "Allow USB debugging?" prompt, run `adb devices` (it must say `device`,
+   not `unauthorized`), then `adb install -r <apk>`. Repeat for phone 2.
+   With both plugged in: `adb -s <serial> install -r <apk>`.
+3. Fund one phone: Home → _Copy my address & open faucet.solana.com_ → paste, pick devnet.
+   For sats: Receive → Bitcoin → _Show my Spark address_, then send sats to it from the games app.
+4. Phone A: **Receive** → pick SOL or Bitcoin → (amount) → _Ready to be tapped_.
+   Phone B: **Tap to pay** → hold the phones back to back, slowly → Confirm. Both show ✓.
+5. If the tap fails: `adb logcat | grep -iE "nfc|apdu|Capacitor"`.
+
+**Sideload without a cable:** copy `app-debug.apk` to the phone (Drive, email, USB file transfer),
+open it in Files, and allow _Install unknown apps_ for that app when prompted. CI also uploads the
+APK as the `tap-debug-apk` artifact on every push to `main`.
+
 ## Known limits
 
 - Both phones must be **Android with NFC on and the screen unlocked**. The receiver must have Tap
   open on the Receive screen.
 - Touch the **backs** of the phones. Antenna positions differ by model, so move them slowly.
-- Devnet airdrops are rate-limited. Use [faucet.solana.com](https://faucet.solana.com) as a fallback.
+- The public devnet RPC no longer airdrops (HTTP 410), so the app opens [faucet.solana.com](https://faucet.solana.com) with your address copied.
+- Bitcoin is **regtest** test money via Breez Spark. The Breez API key ships inside the APK.
 - Devnet only, test money only. iOS isn't supported (iOS doesn't allow app-to-app HCE like this).

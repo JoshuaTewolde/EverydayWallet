@@ -7,6 +7,8 @@ export default defineConfig({
   plugins: [react()],
   envDir: '../../',
   define: { global: 'globalThis' },
+  // Breez loads its WASM relative to its own module; pre-bundling breaks that in dev.
+  optimizeDeps: { exclude: ['@breeztech/breez-sdk-spark'] },
   server: {
     port: 5174,
     host: true,

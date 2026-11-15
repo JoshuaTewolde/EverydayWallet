@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card, DevnetBadge, Qr, ScreenHead } from '../design/components';
 import { RPC_URL, explorerAddress } from '../lib/config';
 import { useStore, useWallet } from '../lib/store';
+import { BREEZ_ENABLED, exportMnemonic, sparkAddress, wipeBreez } from '../lib/breez';
 import { exportSecret, setNickname, wipeWallet } from '../lib/vault';
 
 export function Settings() {
@@ -13,6 +14,8 @@ export function Settings() {
   const [secret, setSecret] = useState<string | null>(null);
   const [nfc, setNfc] = useState<{ status: NfcStatus; hce: boolean } | null>(null);
   const [name, setName] = useState(wallet.nickname);
+  const [spark, setSpark] = useState<string | null>(null);
+  const [seed, setSeed] = useState<string | null>(null);
 
   useEffect(() => {
     void NfcTap.getStatus()
@@ -95,6 +98,34 @@ export function Settings() {
         </div>
       </Card>
 
+      {BREEZ_ENABLED && (
+        <Card>
+          <div className="stack">
+            <span className="eyebrow">Bitcoin · regtest (Breez Spark)</span>
+            {spark ? (
+              <>
+                <span className="mono">{spark}</span>
+                <Button onClick={() => void copy(spark)}>Copy Spark address</Button>
+              </>
+            ) : (
+              <Button
+                onClick={() =>
+                  void sparkAddress().then(setSpark, (e: unknown) =>
+                    window.alert(e instanceof Error ? e.message : 'Bitcoin wallet unavailable'),
+                  )
+                }
+              >
+                Show Spark address
+              </Button>
+            )}
+            <span className="muted">
+              The Breez API key ships inside this APK (it identifies the app, it is not a wallet
+              key).
+            </span>
+          </div>
+        </Card>
+      )}
+
       <Card tone="sun">
         <div className="stack">
           <span className="eyebrow">Danger zone</span>
@@ -118,6 +149,27 @@ export function Settings() {
               Export secret key
             </Button>
           )}
+          {BREEZ_ENABLED &&
+            (seed ? (
+              <>
+                <p>Bitcoin recovery words (regtest only). Anyone with them controls your sats.</p>
+                <span className="mono">{seed}</span>
+                <Button onClick={() => setSeed(null)}>Hide words</Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      'Show your bitcoin recovery words? Anyone who sees them can take your sats.',
+                    )
+                  )
+                    void exportMnemonic().then((m) => setSeed(m ?? 'No bitcoin wallet yet.'));
+                }}
+              >
+                Export bitcoin recovery words
+              </Button>
+            ))}
           <Button
             onClick={() => {
               if (
@@ -125,7 +177,10 @@ export function Settings() {
                   'Delete this wallet from the phone? Without an exported key the test SOL is gone.',
                 )
               )
-                void wipeWallet().then(() => setWallet(null));
+                void wipeBreez()
+                  .catch(() => {})
+                  .then(() => wipeWallet())
+                  .then(() => setWallet(null));
             }}
           >
             Delete wallet

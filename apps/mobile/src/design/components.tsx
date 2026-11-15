@@ -1,5 +1,5 @@
 /** Sticker Arcade design system (reused from CoinClash, trimmed for Tap). */
-import { formatSol, formatUsd, solToUsd } from '@tap/shared';
+import { formatSats, formatSol, formatUsd, satsToUsd, solToUsd } from '@tap/shared';
 import QRCode from 'qrcode';
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate, type LinkProps } from 'react-router-dom';
@@ -106,6 +106,60 @@ export function SolAmount({
         <span className="amount__fiat">(≈ {formatUsd(solToUsd(lamports, price))})</span>
       ) : null}
     </span>
+  );
+}
+
+/** Sats amount with optional ≈ USD in parentheses. */
+export function SatsAmount({
+  sats,
+  price,
+  size = 'md',
+  sign,
+}: {
+  sats: number;
+  price?: number | null;
+  size?: 'sm' | 'md' | 'lg';
+  sign?: '+' | '-';
+}) {
+  return (
+    <span className={`amount amount--${size}`}>
+      <span className="amount__sats">
+        {sign}
+        {formatSats(sats)}
+      </span>
+      {price ? <span className="amount__fiat">(≈ {formatUsd(satsToUsd(sats, price))})</span> : null}
+    </span>
+  );
+}
+
+/** "Bitcoin or SOL?" segmented switch. */
+export function RailToggle({
+  rail,
+  onChange,
+}: {
+  rail: 'solana' | 'bitcoin';
+  onChange: (r: 'solana' | 'bitcoin') => void;
+}) {
+  return (
+    <div className="actions" role="radiogroup" aria-label="Currency">
+      {(
+        [
+          ['solana', 'SOL · devnet'],
+          ['bitcoin', 'Bitcoin · regtest'],
+        ] as const
+      ).map(([r, label]) => (
+        <button
+          key={r}
+          type="button"
+          role="radio"
+          aria-checked={rail === r}
+          className={`btn btn--block${rail === r ? ' btn--accent' : ''}`}
+          onClick={() => onChange(r)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
