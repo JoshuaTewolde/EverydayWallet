@@ -1,0 +1,40 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+.data/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# secrets: never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.mnemonic
+
+# playwright
+test-results/
+playwright-report/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Agent worktrees
+.claude/worktrees/
+
+# Android
+*.keystore
+*.jks
+local.properties
+.gradle/
+**/android/app/build/
+**/android/build/
+**/android/capacitor-cordova-android-plugins/
+**/android/app/src/main/assets/public/

@@ -1,0 +1,126 @@
+/* Tap-specific additions on top of the Sticker Arcade design system. */
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--cc-space-3) var(--cc-space-4) 0;
+}
+
+.devnet {
+  font-size: var(--cc-text-xs);
+  white-space: nowrap;
+}
+
+.balance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-1);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cc-space-3);
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  font-size: var(--cc-text-xs);
+  word-break: break-all;
+}
+
+.activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-2);
+}
+
+.activity li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cc-space-2);
+  padding: var(--cc-space-2) 0;
+  border-bottom: 2px dashed var(--cc-ink-soft);
+}
+
+.activity a {
+  color: inherit;
+}
+
+.big-check {
+  font-size: 4rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.qr {
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+  display: block;
+  border: var(--cc-outline);
+  border-radius: var(--cc-radius-md);
+  background: #fff;
+}
+
+/* ---- tap pulse ---- */
+.tap-pulse {
+  position: relative;
+  height: 220px;
+  display: grid;
+  place-items: center;
+}
+
+.tap-pulse__phone {
+  z-index: 1;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--cc-sunflower);
+  border: var(--cc-outline);
+  box-shadow: var(--cc-shadow);
+}
+
+.tap-pulse__ring {
+  position: absolute;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: var(--cc-outline);
+  animation: tap-ring 1.8s ease-out infinite;
+}
+
+.tap-pulse__ring--2 {
+  animation-delay: 0.9s;
+}
+
+.tap-pulse__label {
+  position: absolute;
+  bottom: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+@keyframes tap-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}

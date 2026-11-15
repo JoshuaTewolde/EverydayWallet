@@ -1,0 +1,29 @@
+{
+  "name": "@tap/capacitor-nfc-tap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phone-to-phone NFC tap: HCE card emulation (receiver) + IsoDep reader mode (sender).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "android/src",
+    "android/build.gradle"
+  ],
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/core": "8.6.2"
+  }
+}

@@ -1,0 +1,98 @@
+/*
+ * CoinClash design tokens: "Sticker Arcade".
+ * Thick ink outlines, flat saturated fills, hard offset shadows (no blur).
+ * Bitcoin orange is reserved for money amounts ONLY.
+ */
+:root {
+  /* palette */
+  --cc-paper: #fff8ec;
+  --cc-ink: #161310;
+  --cc-tomato: #ff5a3c;
+  --cc-sunflower: #ffc93c;
+  --cc-teal: #1fb5a8;
+  --cc-white: #ffffff;
+  --cc-ink-soft: #4a433b;
+  --cc-money: #f7931a; /* money amounts only */
+
+  /* semantic */
+  --cc-bg: var(--cc-paper);
+  --cc-fg: var(--cc-ink);
+  --cc-primary: var(--cc-tomato);
+  --cc-accent: var(--cc-sunflower);
+  --cc-secondary: var(--cc-teal);
+  --cc-danger: var(--cc-tomato);
+
+  /* type */
+  --cc-font-display: 'Bricolage Grotesque', 'Arial Black', sans-serif;
+  --cc-font-body: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+  --cc-text-xs: 0.8125rem;
+  --cc-text-sm: 0.9375rem;
+  --cc-text-md: 1.0625rem;
+  --cc-text-lg: 1.375rem;
+  --cc-text-xl: 2rem;
+  --cc-text-2xl: 2.75rem;
+
+  /* shape */
+  --cc-stroke: 3px;
+  --cc-outline: var(--cc-stroke) solid var(--cc-ink);
+  --cc-radius-sm: 8px;
+  --cc-radius-md: 14px;
+  --cc-radius-pill: 999px;
+  --cc-shadow-offset: 5px;
+  --cc-shadow: var(--cc-shadow-offset) var(--cc-shadow-offset) 0 0 var(--cc-ink);
+  --cc-shadow-pressed: 1px 1px 0 0 var(--cc-ink);
+
+  /* spacing (4px scale) */
+  --cc-space-1: 4px;
+  --cc-space-2: 8px;
+  --cc-space-3: 12px;
+  --cc-space-4: 16px;
+  --cc-space-5: 24px;
+  --cc-space-6: 32px;
+  --cc-space-7: 48px;
+
+  /* interaction */
+  --cc-touch-min: 44px;
+  --cc-press-ms: 90ms;
+  --cc-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cc-press-ms: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--cc-bg);
+  color: var(--cc-fg);
+  font-family: var(--cc-font-body);
+  font-size: var(--cc-text-md);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--cc-font-display);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0;
+}

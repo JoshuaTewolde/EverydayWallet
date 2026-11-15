@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/tap_service_description"
+    android:requireDeviceUnlock="true">
+    <!-- Proprietary AID (F0 prefix = unregistered/proprietary). Must match ApduProtocol.AID. -->
+    <aid-group android:category="other" android:description="@string/tap_service_description">
+        <aid-filter android:name="F0544150574C5401" />
+    </aid-group>
+</host-apdu-service>

@@ -1,0 +1,12 @@
+dist
+coverage
+dev-dist
+node_modules
+pnpm-lock.yaml
+docs/SPEC.md
+.data
+test-results
+playwright-report
+blob-report
+apps/mobile/android
+packages/capacitor-nfc-tap/android
