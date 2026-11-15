@@ -9,10 +9,11 @@ Android-only Solana **devnet** wallet with phone-to-phone NFC tap. Full spec: `d
 ## Commands (Windows, Git Bash)
 
 - Checks: `pnpm lint && pnpm typecheck && pnpm test`
-- APK: `export JAVA_HOME="$LOCALAPPDATA/Programs/Eclipse Adoptium/jdk-21.0.6.7-hotspot"; pnpm android:apk`
+- APK: JAVA_HOME = a JDK 21 as a **Windows-style path** (gradlew.bat can't read `/c/...`), then `pnpm android:apk`
   → `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`
 - Install: `"$LOCALAPPDATA/Android/Sdk/platform-tools/adb" install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`
-- Kotlin tests: `cd apps/mobile/android && ./gradlew :tap-capacitor-nfc-tap:testDebugUnitTest`
+- Kotlin tests: `pnpm android:test` (`scripts/gradle.mjs` picks gradlew.bat vs ./gradlew)
+- Emulator `Medium_Phone_API_35` exists (no NFC, but real WebView + Breez WASM); Git Bash adb needs `MSYS_NO_PATHCONV=1` for `/sdcard` paths.
 - Server: `pnpm --filter @tap/server dev` (reads root `.env`)
 
 ## Decisions

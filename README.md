@@ -35,13 +35,19 @@ The tap works for both currencies.
 
 Requires Node 22, pnpm 9, Android SDK, JDK 21.
 
-```bash
+PowerShell, from the repo root:
+
+```powershell
 pnpm install
-pnpm lint && pnpm typecheck && pnpm test
-export JAVA_HOME="$LOCALAPPDATA/Programs/Eclipse Adoptium/jdk-21.0.6.7-hotspot"   # any JDK 21
-pnpm android:apk
-"$LOCALAPPDATA/Android/Sdk/platform-tools/adb" install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+pnpm lint; pnpm typecheck; pnpm test
+$env:JAVA_HOME = "$env:LOCALAPPDATA\Programs\Eclipse Adoptium\jdk-21.0.6.7-hotspot"   # any JDK 21
+pnpm android:apk     # -> apps\mobile\android\app\build\outputs\apk\debug\app-debug.apk
+pnpm android:test    # Kotlin APDU unit tests
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r apps\mobile\android\app\build\outputs\apk\debug\app-debug.apk
 ```
+
+Or open the `apps/mobile/android` folder in Android Studio (File → Open), let Gradle sync, plug in
+a phone and press ▶ Run. After changing web code, run `pnpm android:sync` first.
 
 Server (receipt scan + USD price): copy `.env.example` to `.env`, set `GEMINI_API_KEY`, then
 `pnpm --filter @tap/server dev`. Set `VITE_API_URL` before building the APK so the app can reach it.
